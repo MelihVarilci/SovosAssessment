@@ -48,9 +48,8 @@ namespace SovosAssessment.WebAPI.Controllers
             }
         }
 
-
         [HttpPost("uploadJson")]
-        public IActionResult UploadJson([FromBody] JObject jsonData)
+        public async Task<IActionResult> UploadJson([FromBody] JObject jsonData)
         {
             try
             {
@@ -66,11 +65,10 @@ namespace SovosAssessment.WebAPI.Controllers
                 };
 
                 // Invoice nesnesini veritabanına kaydet
-                _unitOfWork.Invoice.AddInvoice(invoice);
-                _unitOfWork.SaveChanges();
+                await _unitOfWork.Invoice.AddInvoice(invoice);
 
                 // InvoiceLine verilerini kaydetme işlemini yapıyoruz
-                foreach (var invoiceLineData in invoiceData.InvoiceLine)
+                foreach (var invoiceLineData in invoiceData.InvoiceLines)
                 {
                     var invoiceLine = new InvoiceLine
                     {
@@ -82,16 +80,16 @@ namespace SovosAssessment.WebAPI.Controllers
                     };
 
                     // InvoiceLine nesnesini veritabanına kaydet
-                    _unitOfWork.InvoiceLine.AddInvoiceLine(invoiceLine);
-                    _unitOfWork.SaveChanges();
+                    await _unitOfWork.InvoiceLine.AddInvoiceLine(invoiceLine);
                 }
 
-                Console.WriteLine("Kayıt başarıyla eklendi.");
-                return Ok();
+                // Veritabanına toplu kayıt için yazmış olduğumuz unitoOfWork saveChange methodunu kullanıyoruz
+                _unitOfWork.SaveChanges();
+
+                return Ok("Invoice has been created successfully");
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Kayıt eklenirken hata oluştu: " + ex.Message);
                 return BadRequest(ex);
             }
         }

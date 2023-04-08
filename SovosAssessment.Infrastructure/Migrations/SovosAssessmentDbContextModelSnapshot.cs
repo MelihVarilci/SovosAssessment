@@ -42,7 +42,7 @@ namespace SovosAssessment.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Invoices");
+                    b.ToTable("Invoices", (string)null);
                 });
 
             modelBuilder.Entity("SovosAssessment.Domain.Entities.InvoiceLine", b =>
@@ -73,7 +73,7 @@ namespace SovosAssessment.Infrastructure.Migrations
 
                     b.HasIndex("InvoiceId");
 
-                    b.ToTable("InvoiceLines");
+                    b.ToTable("InvoiceLines", (string)null);
                 });
 
             modelBuilder.Entity("SovosAssessment.Domain.Entities.InvoiceLine", b =>
