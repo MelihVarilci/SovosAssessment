@@ -9,6 +9,8 @@ namespace SovosAssessment.WebAPI.Hangfire
         {
             // Her saat başı çalışacak şekilde worker'ı ayarlıyoruz.
             RecurringJob.AddOrUpdate<InvoiceWorker>(job => job.ExecuteAsync(0), "0 * * * *");
+
+            // Diğer joblar da buraya yazılacak
         }
     }
 }

@@ -10,6 +10,8 @@ using SovosAssessment.Infrastructure.Persistence.Context;
 using SovosAssessment.Infrastructure.Persistence.Repositories;
 using SovosAssessment.WebAPI.Hangfire;
 using System.Transactions;
+using FluentAssertions.Common;
+using SovosAssessment.Application.DTOs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +35,11 @@ builder.Services.AddDbContext<SovosAssessmentDbContext>(
         opt.UseMySQL(connectionString);
     }, ServiceLifetime.Transient);
 
+// appsettings deki Mail ayarlarýný Dto nesnesine mapliyoruz
+builder.Services.Configure<MailSettingsDto>(builder.Configuration.GetSection("MailSettings"));
+
 // Dependency Injection
+builder.Services.AddTransient<MailService>();
 builder.Services.AddTransient<IUnitOfWork, UnitOfWork>();
 builder.Services.AddTransient(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 

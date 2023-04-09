@@ -2,6 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Linq;
 using Serilog;
+using SovosAssessment.Application.Abstractions.Services;
+using SovosAssessment.Application.DTOs;
 using SovosAssessment.Domain.Entities;
 using SovosAssessment.Infrastructure.Persistence.Repositories;
 using SovosAssessment.WebAPI.BackgroundJobs;
@@ -12,6 +14,7 @@ namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
     public class InvoiceWorker : BackgroundJob<int>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly MailService _mailService;
 
         // Verilen bilgilere göre senaryoyu test edebilmek amaçlı bir veri seti oluşturuldu.
         private JArray dummyInvoices = JArray.Parse(@"[
@@ -79,9 +82,10 @@ namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
           }
         ]");
 
-        public InvoiceWorker(IUnitOfWork unitOfWork)
+        public InvoiceWorker(IUnitOfWork unitOfWork, MailService mailService)
         {
             _unitOfWork = unitOfWork;
+            _mailService = mailService;
         }
 
         [AutomaticRetry(Attempts = 0, OnAttemptsExceeded = AttemptsExceededAction.Delete)]
@@ -129,10 +133,21 @@ namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
 
                 // Veritabanına toplu kayıt için yazmış olduğumuz unitoOfWork saveChange methodunu kullanıyoruz
                 _unitOfWork.SaveChanges();
-            }
 
-            Console.WriteLine("E-postalar gönderildi: " + DateTime.Now.ToString());
-            Log.Information("E-postalar gönderildi: {Timestamp}", DateTime.Now);
+                // Başarılı bir şekilde gerçekleşen kayıt işleminin ardından Mail içeriğini ayarlıyoruz
+                var mail = new MailRequestDto
+                {
+                    ToMail = "varilci.melih@gmail.com",
+                    Subject = "Yeni Fatura",
+                    Body = string.Format("Faturanız başarılı bir şekilde oluşturuldu. Oluşturulan fatura no: {0}", invoice.ExternalInvoiceId)
+                };
+
+                // Mail gönderecek servisi tetikliyoruz
+                await _mailService.SendEmailAsync(mail);
+
+                // Serilog
+                Log.Information("E-postalar gönderildi: {Timestamp}", DateTime.Now);
+            }
         }
     }
 }
