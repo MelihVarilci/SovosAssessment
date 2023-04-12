@@ -14,6 +14,7 @@ namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly MailService _mailService;
+        private readonly IConfiguration _configuration;
 
         // Verilen bilgilere göre senaryoyu test edebilmek amaçlı bir veri seti oluşturuldu.
         private JArray dummyInvoices = JArray.Parse(@"[
@@ -81,10 +82,11 @@ namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
           }
         ]");
 
-        public InvoiceWorker(IUnitOfWork unitOfWork, MailService mailService)
+        public InvoiceWorker(IUnitOfWork unitOfWork, MailService mailService, IConfiguration configuration)
         {
             _unitOfWork = unitOfWork;
             _mailService = mailService;
+            _configuration = configuration;
         }
 
         [AutomaticRetry(Attempts = 0, OnAttemptsExceeded = AttemptsExceededAction.Delete)]
@@ -130,7 +132,7 @@ namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
                 // Başarılı bir şekilde gerçekleşen kayıt işleminin ardından Mail içeriğini ayarlıyoruz
                 var mail = new MailRequestDto
                 {
-                    ToMail = "varilci.melih@gmail.com",
+                    ToMail = _configuration.GetSection("MailAddressToSend").Value,
                     Subject = "Yeni Fatura",
                     Body = string.Format("Faturanız başarılı bir şekilde oluşturuldu. Oluşturulan fatura no: {0}", invoiceResult.Data.ExternalInvoiceId)
                 };
