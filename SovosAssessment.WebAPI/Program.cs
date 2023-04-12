@@ -3,15 +3,15 @@ using Hangfire.MySql;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
-using Serilog.Events;
 using Serilog;
 using SovosAssessment.Application.Abstractions.Services;
 using SovosAssessment.Infrastructure.Persistence.Context;
 using SovosAssessment.Infrastructure.Persistence.Repositories;
 using SovosAssessment.WebAPI.Hangfire;
 using System.Transactions;
-using FluentAssertions.Common;
 using SovosAssessment.Application.DTOs;
+using Newtonsoft.Json.Serialization;
+using Newtonsoft.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,9 +21,10 @@ var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddEndpointsApiExplorer();
 
 // Swagger konfigürasyonu
-builder.Services.AddSwaggerGen(c =>
+builder.Services.AddSwaggerGen(options =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "SovosAssessment API", Version = "v1" });
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "SovosAssessment API", Version = "v1" });
+    //options.SchemaFilter<SwaggerJsonSchemaFilter>();
 });
 
 var connectionString = builder.Configuration.GetConnectionString("MySql");
@@ -40,14 +41,20 @@ builder.Services.Configure<MailSettingsDto>(builder.Configuration.GetSection("Ma
 
 // Dependency Injection
 builder.Services.AddTransient<MailService>();
+//builder.Services.AddTransient<IInvoiceRepository, InvoiceRepository>();
+//builder.Services.AddTransient<IInvoiceLineRepository, InvoiceLineRepository>();
 builder.Services.AddTransient<IUnitOfWork, UnitOfWork>();
 builder.Services.AddTransient(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
 // Add services to the container.
 builder.Services.AddControllers()
     .AddNewtonsoftJson(options =>
-    options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
-);
+    {
+        options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        options.SerializerSettings.DateFormatString = "yyyy-MM-ddTHH:mm:ssZ";
+        options.SerializerSettings.Formatting = Formatting.Indented;
+        options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+    });
 
 // Cors politikasýný burada ayarlýyoruz.
 builder.Services.AddCors(options =>
@@ -57,9 +64,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("" +
             "http://localhost:4200/",
-            "https://localhost:4200/",
-            "http://localhost:4200/",
-            "http://unitedroyal.net/")
+            "https://localhost:4200/")
             .AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin();
     });
 });
@@ -119,6 +124,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Her gelen isteði belirli bir responce modelde dönebilmek için 
+//app.UseMiddleware<RequestResponseMiddleware>();
 
 app.UseCors(MyAllowSpecificOrigins);
 

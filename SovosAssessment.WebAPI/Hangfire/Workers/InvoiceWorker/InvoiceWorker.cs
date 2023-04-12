@@ -7,7 +7,6 @@ using SovosAssessment.Application.DTOs;
 using SovosAssessment.Domain.Entities;
 using SovosAssessment.Infrastructure.Persistence.Repositories;
 using SovosAssessment.WebAPI.BackgroundJobs;
-using SovosAssessment.WebAPI.DTOs;
 
 namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
 {
@@ -25,7 +24,7 @@ namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
               ""ReceiverTitle"": ""Alıcı Firma"",
               ""Date"": ""2023-01-05""
             },
-            ""InvoiceLines"": [
+            ""InvoiceLine"": [
               {
                 ""Id"": 1,
                 ""Name"": ""1.Ürün"",
@@ -56,7 +55,7 @@ namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
               ""ReceiverTitle"": ""Alıcı Firma 2"",
               ""Date"": ""2023-02-05""
             },
-            ""InvoiceLines"": [
+            ""InvoiceLine"": [
               {
                 ""Id"": 4,
                 ""Name"": ""2.Ürün"",
@@ -96,50 +95,44 @@ namespace SovosAssessment.WebAPI.Hangfire.Workers.InvoiceWorker
 
             for (int i = 0; i < dummyInvoicesData.Count; i++)
             {
-                // İlgili invoice id sine eşit bir kayıt var mı kontorlünü yapıyoruz
-                var searchInvoice = await _unitOfWork.Invoice.GetAll().FirstOrDefaultAsync(x => x.ExternalInvoiceId == dummyInvoicesData[i].InvoiceHeader.InvoiceId);
+                // Oluştuduğumuz dummy verileri ile fatura kayıt işlemini tamamlıyoruz
+                var invoiceResult = await _unitOfWork.Invoice.AddInvoice(dummyInvoicesData[i]);
 
-                if (searchInvoice != null)
+                // Yeni bir kayıt işlemi gerçekleşmediyse sıradaki faturaya geçilir
+                if (invoiceResult.Data == null)
                 {
                     continue;
                 }
 
-                var invoice = new Invoice
+                if (invoiceResult.Success && invoiceResult.Data != null)
                 {
-                    ExternalInvoiceId = dummyInvoicesData[i].InvoiceHeader.InvoiceId,
-                    SenderTitle = dummyInvoicesData[i].InvoiceHeader.SenderTitle,
-                    ReceiverTitle = dummyInvoicesData[i].InvoiceHeader.ReceiverTitle,
-                    Date = dummyInvoicesData[i].InvoiceHeader.Date
-                };
 
-                // Invoice nesnesini veritabanına kaydet
-                await _unitOfWork.Invoice.AddInvoice(invoice);
-
-                // InvoiceLine verilerini kaydetme işlemini yapıyoruz
-                foreach (var invoiceLineData in dummyInvoicesData[i].InvoiceLines)
-                {
-                    var invoiceLine = new InvoiceLine
+                    // InvoiceLine verilerini kaydetme işlemini yapıyoruz
+                    foreach (var invoiceLineData in dummyInvoicesData[i].InvoiceLine)
                     {
-                        Name = invoiceLineData.Name,
-                        Quantity = invoiceLineData.Quantity,
-                        UnitCode = invoiceLineData.UnitCode,
-                        UnitPrice = invoiceLineData.UnitPrice,
-                        InvoiceFk = invoice
-                    };
+                        var invoiceLine = new InvoiceLine
+                        {
+                            Name = invoiceLineData.Name,
+                            Quantity = invoiceLineData.Quantity,
+                            UnitCode = invoiceLineData.UnitCode,
+                            UnitPrice = invoiceLineData.UnitPrice,
+                            InvoiceFk = invoiceResult.Data
+                        };
 
-                    // InvoiceLine nesnesini veritabanına kaydet
-                    await _unitOfWork.InvoiceLine.AddInvoiceLine(invoiceLine);
+                        // InvoiceLine nesnesini veritabanına kaydet
+                        await _unitOfWork.InvoiceLine.AddInvoiceLine(invoiceLine);
+                    }
+
+                    // Veritabanına toplu kayıt için yazmış olduğumuz unitoOfWork saveChange methodunu kullanıyoruz
+                    _unitOfWork.SaveChanges();
                 }
-
-                // Veritabanına toplu kayıt için yazmış olduğumuz unitoOfWork saveChange methodunu kullanıyoruz
-                _unitOfWork.SaveChanges();
 
                 // Başarılı bir şekilde gerçekleşen kayıt işleminin ardından Mail içeriğini ayarlıyoruz
                 var mail = new MailRequestDto
                 {
                     ToMail = "varilci.melih@gmail.com",
                     Subject = "Yeni Fatura",
-                    Body = string.Format("Faturanız başarılı bir şekilde oluşturuldu. Oluşturulan fatura no: {0}", invoice.ExternalInvoiceId)
+                    Body = string.Format("Faturanız başarılı bir şekilde oluşturuldu. Oluşturulan fatura no: {0}", invoiceResult.Data.ExternalInvoiceId)
                 };
 
                 // Mail gönderecek servisi tetikliyoruz

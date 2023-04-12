@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using SovosAssessment.Application.Result;
 using SovosAssessment.Domain.Entities;
 using SovosAssessment.Infrastructure.Persistence.Context;
 using SovosAssessment.Infrastructure.Persistence.Repositories;
@@ -11,37 +12,41 @@ namespace SovosAssessment.Application.Abstractions.Services
         {
         }
 
-        public async Task<List<InvoiceLine>> GetAllInvoiceLines()
+        public async Task<IDataResult<List<InvoiceLine>>> GetAllInvoiceLines()
         {
             var invoiceLines = await GetAll()
                 .OrderBy(x => x.Id)
                 .ToListAsync();
 
-            return invoiceLines;
+            return new SuccessDataResult<List<InvoiceLine>>(invoiceLines);
         }
 
-        public async Task<InvoiceLine> GetInvoiceLineById(int id)
+        public async Task<IDataResult<InvoiceLine>> GetInvoiceLineById(int id)
         {
             var invoiceLine = await GetByIdAsync(id);
 
-            return invoiceLine;
+            return new SuccessDataResult<InvoiceLine>(invoiceLine);
         }
 
-        public async Task<InvoiceLine> AddInvoiceLine(InvoiceLine invoiceLine)
+        public async Task<IDataResult<InvoiceLine>> AddInvoiceLine(InvoiceLine invoiceLine)
         {
             var result = await InsertAsync(invoiceLine);
 
-            return result;
+            return new SuccessDataResult<InvoiceLine>(result);
         }
 
-        public void UpdateInvoiceLine(InvoiceLine invoiceLine)
+        public IResult UpdateInvoiceLine(InvoiceLine invoiceLine)
         {
             Update(invoiceLine);
+
+            return new SuccessResult();
         }
 
-        public async Task DeleteInvoiceLine(int id)
+        public async Task<IResult> DeleteInvoiceLine(int id)
         {
             await DeleteAsync(id);
+
+            return new SuccessResult();
         }
     }
 }

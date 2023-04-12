@@ -1,9 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Serilog;
+using SovosAssessment.Application.Abstractions.Services;
+using SovosAssessment.Application.DTOs;
+using SovosAssessment.Application.Result;
 using SovosAssessment.Domain.Entities;
 using SovosAssessment.Infrastructure.Persistence.Repositories;
-using SovosAssessment.WebAPI.DTOs;
 
 namespace SovosAssessment.WebAPI.Controllers
 {
@@ -29,6 +32,7 @@ namespace SovosAssessment.WebAPI.Controllers
             }
             catch (Exception ex)
             {
+                Log.Information("Throw Exeption: {Ex}", ex);
                 return BadRequest(ex);
             }
         }
@@ -40,10 +44,16 @@ namespace SovosAssessment.WebAPI.Controllers
             {
                 var result = await _unitOfWork.Invoice.GetInvoiceByExternalInvoiceId(invoiceId);
 
-                return Ok(result);
+                if (result.Success)
+                {
+                    return Ok(result);
+                }
+
+                return BadRequest(result);
             }
             catch (Exception ex)
             {
+                Log.Information("Throw Exeption: {Ex}", ex);
                 return BadRequest(ex);
             }
         }
@@ -53,45 +63,104 @@ namespace SovosAssessment.WebAPI.Controllers
         {
             try
             {
-                // JSON belgesini işlemek için gelen json nesnesini önceden oluşturmuş olduğumuz InvoiceData nesnesine deserialize ediyoruz
+                // JSON belgesini işlemek için gelen json nesnesini InvoiceData nesnesine deserialize ediyoruz
                 var invoiceData = JsonConvert.DeserializeObject<InvoiceData>(jsonData.ToString());
 
-                var invoice = new Invoice
-                {
-                    ExternalInvoiceId = invoiceData.InvoiceHeader.InvoiceId,
-                    SenderTitle = invoiceData.InvoiceHeader.SenderTitle,
-                    ReceiverTitle = invoiceData.InvoiceHeader.ReceiverTitle,
-                    Date = invoiceData.InvoiceHeader.Date
-                };
+                var invoiceResult = await _unitOfWork.Invoice.AddInvoice(invoiceData);
 
-                // Invoice nesnesini veritabanına kaydet
-                await _unitOfWork.Invoice.AddInvoice(invoice);
-
-                // InvoiceLine verilerini kaydetme işlemini yapıyoruz
-                foreach (var invoiceLineData in invoiceData.InvoiceLines)
+                if (invoiceResult.Success && invoiceResult.Data != null)
                 {
-                    var invoiceLine = new InvoiceLine
+                    // InvoiceLine verilerini kaydetme işlemini yapıyoruz
+                    foreach (var invoiceLineData in invoiceData.InvoiceLine)
                     {
-                        Name = invoiceLineData.Name,
-                        Quantity = invoiceLineData.Quantity,
-                        UnitCode = invoiceLineData.UnitCode,
-                        UnitPrice = invoiceLineData.UnitPrice,
-                        InvoiceFk = invoice
-                    };
+                        var invoiceLine = new InvoiceLine
+                        {
+                            Name = invoiceLineData.Name,
+                            Quantity = invoiceLineData.Quantity,
+                            UnitCode = invoiceLineData.UnitCode,
+                            UnitPrice = invoiceLineData.UnitPrice,
+                            InvoiceFk = invoiceResult.Data
+                        };
 
-                    // InvoiceLine nesnesini veritabanına kaydet
-                    await _unitOfWork.InvoiceLine.AddInvoiceLine(invoiceLine);
+                        // InvoiceLine nesnesini veritabanına kaydet
+                        await _unitOfWork.InvoiceLine.AddInvoiceLine(invoiceLine);
+                    }
+
+                    // Veritabanına toplu kayıt için yazmış olduğumuz unitoOfWork saveChange methodunu kullanıyoruz
+                    _unitOfWork.SaveChanges();
+
+                    return Ok(invoiceResult);
                 }
 
-                // Veritabanına toplu kayıt için yazmış olduğumuz unitoOfWork saveChange methodunu kullanıyoruz
-                _unitOfWork.SaveChanges();
-
-                return Ok("Invoice has been created successfully");
+                return BadRequest(invoiceResult);
             }
             catch (Exception ex)
             {
+                Log.Information("Throw Exeption: {Ex}", ex);
+                return BadRequest(ex);
+            }
+        }
+
+        [Produces("application/json")]
+        [HttpPost("uploadJsonWithFile")]
+        public async Task<IActionResult> UploadJsonWithFile(IFormFile file)
+        {
+            try
+            {
+                // Belge tipi json olanlar için işlemlere devam ediyoruz
+                // eğer json harici bir belge gönderilmişse adet bilgisiyle kullanıcı bilgilendirme mesajı hazırlıyoruz
+                if (file != null && file.ContentType == "application/json")
+                {
+                    using (var streamReader = new StreamReader(file.OpenReadStream()))
+                    {
+                        // Yüklenecek json belgesinin içerisindeki bilgileri alıyoruz
+                        var json = streamReader.ReadToEnd();
+
+                        // JSON belgesini işlemek için gelen json nesnesini InvoiceData nesnesine deserialize ediyoruz
+                        var invoiceData = JsonConvert.DeserializeObject<InvoiceData>(json);
+
+                        var invoiceResult = await _unitOfWork.Invoice.AddInvoice(invoiceData);
+
+                        if (invoiceResult.Success && invoiceResult.Data != null)
+                        {
+
+                            // InvoiceLine verilerini kaydetme işlemini yapıyoruz
+                            foreach (var invoiceLineData in invoiceData.InvoiceLine)
+                            {
+                                var invoiceLine = new InvoiceLine
+                                {
+                                    Name = invoiceLineData.Name,
+                                    Quantity = invoiceLineData.Quantity,
+                                    UnitCode = invoiceLineData.UnitCode,
+                                    UnitPrice = invoiceLineData.UnitPrice,
+                                    InvoiceFk = invoiceResult.Data
+                                };
+
+                                // InvoiceLine nesnesini veritabanına kaydet
+                                await _unitOfWork.InvoiceLine.AddInvoiceLine(invoiceLine);
+                            }
+
+                            // Veritabanına toplu kayıt için yazmış olduğumuz unitoOfWork saveChange methodunu kullanıyoruz
+                            _unitOfWork.SaveChanges();
+
+                            return Ok(invoiceResult);
+                        }
+
+                        return BadRequest(invoiceResult);
+                    }
+                }
+                else
+                {
+                    return BadRequest(new SuccessDataResult<Invoice>(null, "json formatında olmayan dosyalar geçersizdir. Formata uymayan dosya tespit edildi."));
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Log.Information("Throw Exeption: {Ex}", ex);
                 return BadRequest(ex);
             }
         }
     }
 }
+

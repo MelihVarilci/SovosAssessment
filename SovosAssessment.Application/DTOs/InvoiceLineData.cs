@@ -1,4 +1,4 @@
-﻿namespace SovosAssessment.WebAPI.DTOs
+﻿namespace SovosAssessment.Application.DTOs
 {
     public class InvoiceLineData
     {

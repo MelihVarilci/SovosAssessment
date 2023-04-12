@@ -1,17 +1,19 @@
-﻿using SovosAssessment.Domain.Entities;
+﻿using SovosAssessment.Application.DTOs;
+using SovosAssessment.Application.Result;
+using SovosAssessment.Domain.Entities;
 
 namespace SovosAssessment.Infrastructure.Persistence.Repositories
 {
     public interface IInvoiceRepository : IGenericRepository<Invoice>
     {
-        Task<List<Invoice>> GetAllInvoices();
+        Task<IDataResult<List<Invoice>>> GetAllInvoices();
 
-        Task<Invoice> GetInvoiceByExternalInvoiceId(string externalInvoiceId);
+        Task<IDataResult<Invoice?>> GetInvoiceByExternalInvoiceId(string externalInvoiceId);
 
-        Task<Invoice> AddInvoice(Invoice invoice);
+        Task<IDataResult<Invoice>> AddInvoice(InvoiceData invoiceData);
 
-        void UpdateInvoice(Invoice invoice);
+        IResult UpdateInvoice(Invoice invoice);
 
-        Task DeleteInvoice(int id);
+        Task<IResult> DeleteInvoice(int id);
     }
 }
