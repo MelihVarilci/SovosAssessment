@@ -19,7 +19,7 @@ Bu projeyi çalıştırmak için aşağıdaki gereksinimleri karşılamalısın�
 git clone <https://github.com/MelihVarilci/SovosAssessment.git>
 ```
 
-1. **appsettings.json** dosyasını açın ve veritabanı bağlantı dizesini ve Gmail SMTP ayarlarını güncelleyin:
+1. **appsettings.json** dosyasını açın ve veritabanı bağlantı dizesini, Gmail SMTP ayarlarını ve hangfire tetiklenmesi neticesinde mail gönderilecek mail sabitini güncelleyin:
 
 ```
 "ConnectionStrings": {
@@ -35,6 +35,10 @@ git clone <https://github.com/MelihVarilci/SovosAssessment.git>
 "UserName": "example@gmail.com",
 "Password": "yourpassword"
 }
+```
+
+```
+"MailAddressToSend": "example@gmail.com",
 ```
 
 1. Veritabanı oluşturmak için Default Project: “SovosAssessment.Infrastructure” katmanını ayarlayın ve aşağıdaki komutları çalıştırın:
